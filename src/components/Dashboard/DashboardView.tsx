@@ -1,5 +1,6 @@
 import React from 'react';
 import { SaleTransaction, Product, Role } from '../../types';
+import { isLowStock, isOutOfStock, isExpiringSoon } from '../../utils/stockUtils';
 import {
   DollarSign,
   TrendingUp,
@@ -68,17 +69,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const totalSalesAllTime = transactions.reduce((sum, tx) => sum + tx.grandTotal, 0);
   const totalProfitAllTime = transactions.reduce((sum, tx) => sum + tx.netProfit, 0);
 
-  // Low Stock Items
-  const lowStockItems = products.filter((p) => p.stock <= p.minStockAlert);
+  // Low Stock Items (stock > 0 && stock <= minStockAlert)
+  const lowStockItems = products.filter(isLowStock);
+  const outOfStockItems = products.filter(isOutOfStock);
 
   // Expiring Soon Items (within 60 days)
-  const isExpiringSoon = (expiryDateStr: string) => {
-    const today = new Date();
-    const expiry = new Date(expiryDateStr);
-    const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= 60;
-  };
-
   const expiringItems = products.filter((p) => isExpiringSoon(p.expiryDate));
 
   // Weekly Sales Bar Chart Data

@@ -105,7 +105,11 @@ export const POSView: React.FC<POSViewProps> = ({
   };
 
   // Calculations
-  const subtotal = cart.reduce((sum, item) => sum + item.product.sellingPrice * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => {
+    const itemTotal = item.product.sellingPrice * item.quantity;
+    const itemDiscount = itemTotal * ((item.discountPercentage || 0) / 100);
+    return sum + (itemTotal - itemDiscount);
+  }, 0);
   const grandTotal = Math.max(0, subtotal - discountAmount + taxAmount);
 
   // Is product expiring soon (within 60 days)
@@ -137,16 +141,20 @@ export const POSView: React.FC<POSViewProps> = ({
       custPhone = guestPhone.trim();
     }
 
-    const saleItems = cart.map((item) => ({
-      productId: item.product.id,
-      productName: item.product.name,
-      genericName: item.product.genericName,
-      unit: item.product.unit,
-      quantity: item.quantity,
-      unitSellingPrice: item.product.sellingPrice,
-      unitCostPrice: item.product.costPrice,
-      totalPrice: item.product.sellingPrice * item.quantity,
-    }));
+    const saleItems = cart.map((item) => {
+      const itemTotal = item.product.sellingPrice * item.quantity;
+      const itemDiscount = itemTotal * ((item.discountPercentage || 0) / 100);
+      return {
+        productId: item.product.id,
+        productName: item.product.name,
+        genericName: item.product.genericName,
+        unit: item.product.unit,
+        quantity: item.quantity,
+        unitSellingPrice: item.product.sellingPrice,
+        unitCostPrice: item.product.costPrice,
+        totalPrice: itemTotal - itemDiscount,
+      };
+    });
 
     const totalCost = saleItems.reduce((sum, item) => sum + item.unitCostPrice * item.quantity, 0);
     const netProfit = grandTotal - totalCost;

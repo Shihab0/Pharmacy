@@ -42,8 +42,11 @@ export const ProfitLossView: React.FC<ProfitLossViewProps> = ({ transactions, cu
       if (timeRange === 'Today') {
         return txDate.toDateString() === now.toDateString();
       } else if (timeRange === 'This Week') {
-        const diffDays = (now.getTime() - txDate.getTime()) / (1000 * 3600 * 24);
-        return diffDays <= 7;
+        const startOfWeek = new Date(now);
+        const day = now.getDay(); // 0 is Sunday
+        startOfWeek.setDate(now.getDate() - day);
+        startOfWeek.setHours(0, 0, 0, 0);
+        return txDate >= startOfWeek;
       } else if (timeRange === 'This Month') {
         return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
       }

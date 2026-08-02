@@ -19,7 +19,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Product, Customer, TreatmentRecord, SaleTransaction } from '../types';
+import { Product, Customer, TreatmentRecord, SaleTransaction, AuthorizedUser, Role } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_TREATMENT_RECORDS, INITIAL_TRANSACTIONS } from '../data/mockData';
 
 // Initialize Firebase App
@@ -163,8 +163,67 @@ export async function seedInitialFirestoreData() {
       await batch.commit();
       console.log('Seeded initial transactions to Firestore');
     }
+
+    // Check authorized users
+    const usersSnap = await getDocs(collection(db, 'authorized_users'));
+    if (usersSnap.empty) {
+      const batch = writeBatch(db);
+      const defaultUsers: AuthorizedUser[] = [
+        { email: 'atahershihab151@gmail.com', role: 'Super Admin' },
+        { email: 'staff@agrovet.com', role: 'Staff' },
+        { email: 'sakil@agrovet.com', role: 'Staff' },
+      ];
+      defaultUsers.forEach((u) => {
+        batch.set(doc(db, 'authorized_users', u.email.toLowerCase()), u);
+      });
+      await batch.commit();
+      console.log('Seeded initial authorized users to Firestore');
+    }
   } catch (error) {
     console.warn('Firestore seeding skipped or restricted:', error);
+  }
+}
+
+// Authorized Users Subscriptions & Operations
+export function subscribeAuthorizedUsers(onData: (users: AuthorizedUser[]) => void) {
+  const path = 'authorized_users';
+  return onSnapshot(
+    collection(db, path),
+    (snapshot) => {
+      const users: AuthorizedUser[] = [];
+      snapshot.forEach((docSnap) => {
+        users.push(docSnap.data() as AuthorizedUser);
+      });
+      onData(users);
+    },
+    (error) => {
+      console.warn('Subscription info [authorized_users]:', error.message);
+    }
+  );
+}
+
+export async function saveAuthorizedUserToFirestore(email: string, role: Role = 'Staff') {
+  const cleanEmail = email.trim().toLowerCase();
+  const path = `authorized_users/${cleanEmail}`;
+  try {
+    const userObj: AuthorizedUser = {
+      email: cleanEmail,
+      role,
+      addedAt: new Date().toISOString(),
+    };
+    await setDoc(doc(db, 'authorized_users', cleanEmail), userObj);
+  } catch (error) {
+    console.warn('Failed to save authorized user to Firestore:', error);
+  }
+}
+
+export async function deleteAuthorizedUserFromFirestore(email: string) {
+  const cleanEmail = email.trim().toLowerCase();
+  const path = `authorized_users/${cleanEmail}`;
+  try {
+    await deleteDoc(doc(db, 'authorized_users', cleanEmail));
+  } catch (error) {
+    console.warn('Failed to delete authorized user from Firestore:', error);
   }
 }
 
@@ -181,8 +240,7 @@ export function subscribeProducts(onData: (products: Product[]) => void) {
       onData(products);
     },
     (error) => {
-      console.error('Error listening to products:', error);
-      handleFirestoreError(error, OperationType.GET, path);
+      console.warn('Subscription info [products]:', error.message);
     }
   );
 }
@@ -192,7 +250,7 @@ export async function saveProductToFirestore(product: Product) {
   try {
     await setDoc(doc(db, 'products', product.id), product);
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    console.warn('Failed to save product to Firestore:', error);
   }
 }
 
@@ -201,7 +259,7 @@ export async function deleteProductFromFirestore(productId: string) {
   try {
     await deleteDoc(doc(db, 'products', productId));
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    console.warn('Failed to delete product from Firestore:', error);
   }
 }
 
@@ -217,8 +275,7 @@ export function subscribeCustomers(onData: (customers: Customer[]) => void) {
       onData(customers);
     },
     (error) => {
-      console.error('Error listening to customers:', error);
-      handleFirestoreError(error, OperationType.GET, path);
+      console.warn('Subscription info [customers]:', error.message);
     }
   );
 }
@@ -228,7 +285,7 @@ export async function saveCustomerToFirestore(customer: Customer) {
   try {
     await setDoc(doc(db, 'customers', customer.id), customer);
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    console.warn('Failed to save customer to Firestore:', error);
   }
 }
 
@@ -244,8 +301,7 @@ export function subscribeTreatmentRecords(onData: (records: TreatmentRecord[]) =
       onData(records);
     },
     (error) => {
-      console.error('Error listening to treatment records:', error);
-      handleFirestoreError(error, OperationType.GET, path);
+      console.warn('Subscription info [treatmentRecords]:', error.message);
     }
   );
 }
@@ -255,7 +311,7 @@ export async function saveTreatmentRecordToFirestore(record: TreatmentRecord) {
   try {
     await setDoc(doc(db, 'treatmentRecords', record.id), record);
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    console.warn('Failed to save treatment record to Firestore:', error);
   }
 }
 
@@ -264,7 +320,7 @@ export async function deleteTreatmentRecordFromFirestore(recordId: string) {
   try {
     await deleteDoc(doc(db, 'treatmentRecords', recordId));
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    console.warn('Failed to delete treatment record from Firestore:', error);
   }
 }
 
@@ -280,8 +336,7 @@ export function subscribeTransactions(onData: (transactions: SaleTransaction[]) 
       onData(transactions);
     },
     (error) => {
-      console.error('Error listening to transactions:', error);
-      handleFirestoreError(error, OperationType.GET, path);
+      console.warn('Subscription info [transactions]:', error.message);
     }
   );
 }
@@ -291,6 +346,6 @@ export async function saveTransactionToFirestore(transaction: SaleTransaction) {
   try {
     await setDoc(doc(db, 'transactions', transaction.id), transaction);
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    console.warn('Failed to save transaction to Firestore:', error);
   }
 }

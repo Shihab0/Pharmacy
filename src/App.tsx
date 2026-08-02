@@ -17,6 +17,9 @@ import {
   deleteTreatmentRecordFromFirestore,
   subscribeTransactions,
   saveTransactionToFirestore,
+  subscribeAuthorizedUsers,
+  saveAuthorizedUserToFirestore,
+  deleteAuthorizedUserFromFirestore,
 } from './lib/firebase';
 import {
   getProducts,
@@ -84,21 +87,6 @@ export default function App() {
     // Listen to Firebase Auth
     const unsubscribeAuth = subscribeToAuth((currentUser) => {
       setUser(currentUser);
-      if (currentUser) {
-        const email = currentUser.email?.toLowerCase();
-        if (email === 'atahershihab151@gmail.com') {
-          setCurrentRole('Super Admin');
-          saveCurrentRole('Super Admin');
-          setIsAuthenticated(true);
-        } else if (email && staffEmails.includes(email)) {
-          setCurrentRole('Staff');
-          saveCurrentRole('Staff');
-          setIsAuthenticated(true);
-        } else {
-          // Unregistered email
-          setIsAuthenticated(false);
-        }
-      }
     });
 
     // Test Firestore Connection & Seed Initial Data if necessary
@@ -109,29 +97,41 @@ export default function App() {
     });
 
     // Subscribe to Firestore Realtime Data
+    const unsubAuthorizedUsers = subscribeAuthorizedUsers((users) => {
+      if (users) {
+        const emails = users.map((u) => u.email.toLowerCase());
+        setStaffEmails(emails);
+        try {
+          localStorage.setItem('agrovet_staff_emails', JSON.stringify(emails));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    });
+
     const unsubProducts = subscribeProducts((firestoreProds) => {
-      if (firestoreProds && firestoreProds.length > 0) {
+      if (firestoreProds) {
         setProducts(firestoreProds);
         saveProducts(firestoreProds);
       }
     });
 
     const unsubCustomers = subscribeCustomers((firestoreCusts) => {
-      if (firestoreCusts && firestoreCusts.length > 0) {
+      if (firestoreCusts) {
         setCustomers(firestoreCusts);
         saveCustomers(firestoreCusts);
       }
     });
 
     const unsubTreatments = subscribeTreatmentRecords((firestoreTreats) => {
-      if (firestoreTreats && firestoreTreats.length > 0) {
+      if (firestoreTreats) {
         setTreatmentRecords(firestoreTreats);
         saveTreatmentRecords(firestoreTreats);
       }
     });
 
     const unsubTransactions = subscribeTransactions((firestoreTxs) => {
-      if (firestoreTxs && firestoreTxs.length > 0) {
+      if (firestoreTxs) {
         setTransactions(firestoreTxs);
         saveTransactions(firestoreTxs);
       }
@@ -147,33 +147,56 @@ export default function App() {
 
     return () => {
       unsubscribeAuth();
+      unsubAuthorizedUsers();
       unsubProducts();
       unsubCustomers();
       unsubTreatments();
       unsubTransactions();
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
-  }, [staffEmails]);
+  }, []);
+
+  // Sync role when user or staffEmails list updates
+  useEffect(() => {
+    if (user) {
+      const email = user.email?.toLowerCase();
+      if (email === 'atahershihab151@gmail.com') {
+        setCurrentRole('Super Admin');
+        saveCurrentRole('Super Admin');
+        setIsAuthenticated(true);
+      } else if (email && staffEmails.includes(email)) {
+        setCurrentRole('Staff');
+        saveCurrentRole('Staff');
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+    }
+  }, [user, staffEmails]);
 
   // Manage Staff Emails
   const handleAddStaffEmail = (email: string) => {
-    const updated = Array.from(new Set([...staffEmails, email.toLowerCase()]));
+    const cleanEmail = email.trim().toLowerCase();
+    const updated = Array.from(new Set([...staffEmails, cleanEmail]));
     setStaffEmails(updated);
     try {
       localStorage.setItem('agrovet_staff_emails', JSON.stringify(updated));
     } catch (e) {
       console.error('Failed saving staff emails', e);
     }
+    saveAuthorizedUserToFirestore(cleanEmail, 'Staff');
   };
 
   const handleRemoveStaffEmail = (email: string) => {
-    const updated = staffEmails.filter((e) => e !== email.toLowerCase());
+    const cleanEmail = email.trim().toLowerCase();
+    const updated = staffEmails.filter((e) => e !== cleanEmail);
     setStaffEmails(updated);
     try {
       localStorage.setItem('agrovet_staff_emails', JSON.stringify(updated));
     } catch (e) {
       console.error('Failed saving staff emails', e);
     }
+    deleteAuthorizedUserFromFirestore(cleanEmail);
   };
 
   // Firebase Google Login Handlers
@@ -293,13 +316,15 @@ export default function App() {
     saveTransactions(updatedTransactions);
     saveTransactionToFirestore(transaction);
 
-    // 3. Update Customer Total Spent if customer linked
+    // 3. Update Customer Total Spent & Due Balance if customer linked
     if (transaction.customerId) {
+      const isDuePayment = transaction.paymentMethod === 'Credit / Due';
       const updatedCustomers = customers.map((c) => {
         if (c.id === transaction.customerId) {
           const updatedCust = {
             ...c,
             totalSpent: c.totalSpent + transaction.grandTotal,
+            dueBalance: isDuePayment ? c.dueBalance + transaction.grandTotal : c.dueBalance,
             lastVisit: new Date().toISOString().slice(0, 10),
           };
           saveCustomerToFirestore(updatedCust);
@@ -313,6 +338,25 @@ export default function App() {
 
     // 4. Trigger Receipt Modal
     setLatestTransaction(transaction);
+  };
+
+  // Pay Due Payment Handler
+  const handlePayDue = (customerId: string, amountPaid: number) => {
+    if (amountPaid <= 0) return;
+    const updatedCustomers = customers.map((c) => {
+      if (c.id === customerId) {
+        const newDue = Math.max(0, c.dueBalance - amountPaid);
+        const updatedCust = {
+          ...c,
+          dueBalance: newDue,
+        };
+        saveCustomerToFirestore(updatedCust);
+        return updatedCust;
+      }
+      return c;
+    });
+    setCustomers(updatedCustomers);
+    saveCustomers(updatedCustomers);
   };
 
   // Product CRUD
@@ -439,6 +483,7 @@ export default function App() {
               customers={customers}
               transactions={transactions}
               onAddCustomer={handleAddCustomer}
+              onPayDue={handlePayDue}
             />
           )}
         </main>

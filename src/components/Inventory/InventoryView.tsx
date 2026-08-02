@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Product, ProductCategory, AnimalTarget, Role } from '../../types';
+import { isLowStock, isOutOfStock, isExpiringSoon } from '../../utils/stockUtils';
 import {
   Package,
   Plus,
@@ -111,9 +112,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       totalCostValuation += p.stock * p.costPrice;
       totalRetailValuation += p.stock * p.sellingPrice;
 
-      if (p.stock <= 0) {
+      if (isOutOfStock(p)) {
         outOfStockCount++;
-      } else if (p.stock <= p.minStockAlert) {
+      } else if (isLowStock(p)) {
         lowStockCount++;
       }
 

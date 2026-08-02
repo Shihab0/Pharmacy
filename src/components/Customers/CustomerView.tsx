@@ -18,15 +18,21 @@ interface CustomerViewProps {
   customers: Customer[];
   transactions: SaleTransaction[];
   onAddCustomer: (customer: Customer) => void;
+  onPayDue?: (customerId: string, amount: number) => void;
 }
 
 export const CustomerView: React.FC<CustomerViewProps> = ({
   customers,
   transactions,
   onAddCustomer,
+  onPayDue,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerHistory, setSelectedCustomerHistory] = useState<Customer | null>(null);
+
+  // Pay Due Modal
+  const [payDueCustomer, setPayDueCustomer] = useState<Customer | null>(null);
+  const [payAmount, setPayAmount] = useState<number>(0);
 
   // Add Customer Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -163,7 +169,7 @@ export const CustomerView: React.FC<CustomerViewProps> = ({
               </div>
 
               {/* Purchase Totals & History Button */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                 <div>
                   <div className="text-[10px] text-slate-400 font-medium">মোট কেনাকাটা</div>
                   <div className="text-sm font-extrabold text-slate-900">৳{c.totalSpent.toFixed(2)}</div>
@@ -176,13 +182,27 @@ export const CustomerView: React.FC<CustomerViewProps> = ({
                   </div>
                 )}
 
-                <button
-                  onClick={() => setSelectedCustomerHistory(c)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-extrabold rounded-xl transition flex items-center gap-1"
-                >
-                  <Receipt className="w-3.5 h-3.5" />
-                  <span>মেমোর ইতিহাস</span>
-                </button>
+                <div className="flex items-center gap-1.5 ml-auto">
+                  {c.dueBalance > 0 && onPayDue && (
+                    <button
+                      onClick={() => {
+                        setPayDueCustomer(c);
+                        setPayAmount(c.dueBalance);
+                      }}
+                      className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-extrabold rounded-xl transition border border-red-200 flex items-center gap-1"
+                    >
+                      <DollarSign className="w-3.5 h-3.5" />
+                      <span>বকেয়া পরিশোধ</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedCustomerHistory(c)}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-extrabold rounded-xl transition flex items-center gap-1"
+                  >
+                    <Receipt className="w-3.5 h-3.5" />
+                    <span>মেমো ইতিহাস</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))
@@ -349,6 +369,69 @@ export const CustomerView: React.FC<CustomerViewProps> = ({
                 className="px-4 py-2 font-bold text-xs bg-slate-200 hover:bg-slate-300 rounded-xl"
               >
                 বন্ধ করুন
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pay Due Modal */}
+      {payDueCustomer && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full border border-slate-200 overflow-hidden space-y-4 p-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-bold text-slate-900 text-base">বকেয়া জমা গ্রহণ</h3>
+              <button
+                onClick={() => setPayDueCustomer(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-slate-500">খামারির নাম:</p>
+                <p className="text-sm font-bold text-slate-900">{payDueCustomer.name}</p>
+              </div>
+
+              <div className="bg-red-50 p-3 rounded-2xl border border-red-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-red-700">বর্তমান মোট বকেয়া:</span>
+                <span className="text-base font-extrabold text-red-700">৳{payDueCustomer.dueBalance.toFixed(2)}</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  জমা করার পরিমাণ (টাকা):
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={payDueCustomer.dueBalance}
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                onClick={() => setPayDueCustomer(null)}
+                className="px-4 py-2 font-bold text-xs text-slate-600 hover:bg-slate-100 rounded-xl transition"
+              >
+                বাতিল
+              </button>
+              <button
+                onClick={() => {
+                  if (payAmount > 0 && onPayDue) {
+                    onPayDue(payDueCustomer.id, payAmount);
+                    setPayDueCustomer(null);
+                  }
+                }}
+                className="px-4 py-2 font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow transition"
+              >
+                জমা গ্রহণ করুন
               </button>
             </div>
           </div>

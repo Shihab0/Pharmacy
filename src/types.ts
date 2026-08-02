@@ -1,5 +1,11 @@
 export type Role = 'Super Admin' | 'Staff';
 
+export interface AuthorizedUser {
+  email: string;
+  role: Role;
+  addedAt?: string;
+}
+
 export type ProductCategory = 'Medicine' | 'Vaccine' | 'Feed' | 'Supplement' | 'Equipment';
 
 export type AnimalTarget = 'Cattle' | 'Poultry' | 'Goat/Sheep' | 'Pet' | 'Aqua/All';

@@ -4,11 +4,26 @@ service cloud.firestore {
 
     // Helper functions
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token != null && request.auth.token.email != null;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'atahershihab151@gmail.com' ||
+        (exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email)) &&
+         get(/databases/$(database)/documents/authorized_users/$(request.auth.token.email)).data.role == 'Super Admin')
+      );
+    }
+
+    function isAuthorizedUser() {
+      return isSignedIn() && (
+        request.auth.token.email == 'atahershihab151@gmail.com' ||
+        exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email))
+      );
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128;
     }
 
     // Default deny
@@ -16,28 +31,34 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Authorized users collection
+    match /authorized_users/{userEmail} {
+      allow read: if isAuthorizedUser();
+      allow write: if isSuperAdmin();
+    }
+
     // Products collection
     match /products/{productId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isValidId(productId);
+      allow read: if isAuthorizedUser();
+      allow write: if isAuthorizedUser() && isValidId(productId);
     }
 
     // Customers collection
     match /customers/{customerId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isValidId(customerId);
+      allow read: if isAuthorizedUser();
+      allow write: if isAuthorizedUser() && isValidId(customerId);
     }
 
     // Treatment records collection
     match /treatmentRecords/{recordId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isValidId(recordId);
+      allow read: if isAuthorizedUser();
+      allow write: if isAuthorizedUser() && isValidId(recordId);
     }
 
     // Transactions collection
     match /transactions/{transactionId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isValidId(transactionId);
+      allow read: if isAuthorizedUser();
+      allow write: if isAuthorizedUser() && isValidId(transactionId);
     }
   }
 }
