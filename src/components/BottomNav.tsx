@@ -7,10 +7,11 @@ import {
   TrendingUp,
   Stethoscope,
   Users,
+  Home,
   Lock
 } from 'lucide-react';
 
-export type NavTab = 'pos' | 'inventory' | 'dashboard' | 'pnl' | 'treatments' | 'customers';
+export type NavTab = 'landing' | 'pos' | 'inventory' | 'dashboard' | 'pnl' | 'treatments' | 'customers';
 
 interface BottomNavProps {
   activeTab: NavTab;
@@ -26,6 +27,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const isStaff = currentRole === 'Staff';
 
   const navItems = [
+    {
+      id: 'landing' as NavTab,
+      label: 'শপ হোম',
+      shortLabel: 'হোম',
+      icon: Home,
+      adminOnly: false,
+    },
     {
       id: 'pos' as NavTab,
       label: 'ক্যাশ মেমো',

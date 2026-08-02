@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Products collection
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(productId);
+    }
+
+    // Customers collection
+    match /customers/{customerId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(customerId);
+    }
+
+    // Treatment records collection
+    match /treatmentRecords/{recordId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(recordId);
+    }
+
+    // Transactions collection
+    match /transactions/{transactionId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidId(transactionId);
+    }
+  }
+}
