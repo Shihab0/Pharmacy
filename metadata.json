@@ -1,0 +1,6 @@
+{
+  "name": "AgroVet Pharmacy",
+  "description": "Veterinary medicine and animal treatment management app with POS, inventory, treatment logs, and RBAC.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
